@@ -31,6 +31,7 @@ class FacenetServer:
         self.app.router.add_post('/process_frame', self.process_frame)
         self.app.router.add_post('/train', self.train_model)
         self.app.router.add_post('/process_frames', self.process_frames)
+        self.app.router.add_post('/refresh_and_record', self.refresh_and_record)
 
     async def health_check(self, request):
         return web.Response(text='{"status": "healthy"}', content_type='application/json')
@@ -291,6 +292,31 @@ class FacenetServer:
                 "face_detected": False,
                 "message": str(e)
             }), content_type='application/json')
+
+    async def refresh_and_record(self, request):
+        if self.debug:
+            logger.debug("=== Rozpoczęcie odświeżania i nagrywania ===")
+        try:
+            # Wysłanie żądania POST do endpointu nagrywania
+            async with aiohttp.ClientSession() as session:
+                async with session.post('http://localhost:8080/record') as response:
+                    if response.status == 200:
+                        return web.Response(text=json.dumps({
+                            "status": "success",
+                            "message": "Sygnał nagrywania wysłany pomyślnie"
+                        }), content_type='application/json')
+                    else:
+                        return web.Response(text=json.dumps({
+                            "status": "error",
+                            "message": f"Błąd podczas wysyłania sygnału nagrywania: {response.status}"
+                        }), content_type='application/json', status=500)
+                    
+        except Exception as e:
+            logger.error(f"Błąd podczas odświeżania i nagrywania: {e}")
+            return web.Response(text=json.dumps({
+                "status": "error",
+                "message": str(e)
+            }), content_type='application/json', status=500)
 
     def run(self):
         web.run_app(self.app, host=self.host, port=self.port)
